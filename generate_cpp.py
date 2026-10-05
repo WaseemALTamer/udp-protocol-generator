@@ -1,23 +1,32 @@
-import inspect
 import protocol
 
-for name, obj in inspect.getmembers(protocol, inspect.isclass):
-    print(name)
 
 
 import inspect
 from dataclasses import is_dataclass
+from enum import Enum
 
-classes = []
+
+enums = []
+message_classes = []
+
+protocol.MESSAGE_TYPE_REGISTRY
 
 for name, cls in inspect.getmembers(protocol, inspect.isclass):
+    if cls.__module__ != protocol.__name__:
+        continue
+
+    if cls is protocol.MessageBase:
+        continue
+
     if (
-        cls.__module__ == protocol.__name__
-        and is_dataclass(cls)
+        is_dataclass(cls)
         and issubclass(cls, protocol.MessageBase)
-        and cls is not protocol.MessageBase
     ):
-        classes.append(cls)
+        message_classes.append(cls)
 
+    elif issubclass(cls, Enum):
+        enums.append(cls)
 
-print(classes)
+print(enums)
+print(message_classes)
