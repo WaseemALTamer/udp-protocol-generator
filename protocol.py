@@ -124,13 +124,13 @@ class MessageBase:
 
 class ContentType(IntEnum):
     NONE = 0
-
-    COMMAND = 1
-    INFORMATION = 2
-    DISCOVERY = 3
-    ONLINE = 4
-
-    WIFI_CONNECT = 5
+    MESSAGE = 1
+    COMMAND = 2
+    INFORMATION = 3
+    DISCOVERY = 4
+    ONLINE = 5
+    WIFI_CONNECT = 6
+    
 
 
 
