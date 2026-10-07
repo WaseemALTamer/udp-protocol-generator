@@ -14,11 +14,14 @@ _version = 1
 class MessageBase:
 
     __fields__ = {}
+    
 
     def to_bytes(self) -> bytes:
         data = b""
 
-        for field, value in self.__dict__.items():
+        for field, size in self.__fields__.items():
+            
+            value = getattr(self, field)
             if value is None:
                 continue
 
@@ -50,10 +53,16 @@ class MessageBase:
                     raise ValueError(
                         f"Invalid float size: {size}"
                     )
-            elif isinstance(value, MessageBase):
-                data += value.to_bytes()
             else:
                 pass
+
+        if (
+            hasattr(self, "content_type")
+            and hasattr(self, "content")
+        ):
+            value = self.content
+            if isinstance(value, MessageBase):
+                data += value.to_bytes()
 
         return data
 
@@ -146,6 +155,7 @@ class Message(MessageBase):
     content_type: int = ContentType.NONE
     content: MessageBase = None
 
+    __size__ = 81 # dont try to caulcate it since it will be used to auto genearte the c code
     __fields__ = {
         "version": (int, 1),
         "device_name": (str, 64),
@@ -164,7 +174,8 @@ class Command(MessageBase): # this class can be encreapted later on
     
     content_type:int = ContentType.NONE
     content: MessageBase = None
-    
+
+    __size__ = 9
     __fields__ = {
         "sequence_number": (int, 8),
         "content_type": (int, 1),
@@ -175,6 +186,7 @@ class WifiConnect(MessageBase):
     ssid:str = ""
     password:str = ""
 
+    __size__ = 96
     __fields__ = {
         "ssid": (str, 32),
         "password": (str, 64),

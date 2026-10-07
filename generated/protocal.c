@@ -1,45 +1,70 @@
+
+/*
+    THIS CODE IS GENEARTED DO NOT CHANGE, IF YOU WANT TO CHANGE LOOK THROUGH THE
+    PYTHON MIRROR OF THE PROTOCAL AND REGENERATE THE CODE WITH THE GENERATOR
+*/
+
+
 #include <stdint.h>
 #include <stddef.h>
 #include <string.h>
 #include <time.h>
 #include <stdio.h>
 
-typedef enum ContentType{
-    NONE,
-    MESSAGE,
-    COMMAND,
-    INFORMATION,
-    DISCOVERY,
-    ONLINE,
-    WIFI_CONNECT,
+
+
+typedef enum ContentType {
+    CONTENT_TYPE_NONE = 0,
+    CONTENT_TYPE_MESSAGE = 1,
+    CONTENT_TYPE_COMMAND = 2,
+    CONTENT_TYPE_INFORMATION = 3,
+    CONTENT_TYPE_DISCOVERY = 4,
+    CONTENT_TYPE_ONLINE = 5,
+    CONTENT_TYPE_WIFI_CONNECT = 6,
 } ContentType;
-
-typedef struct MessageBase MessageBase;
-
-typedef size_t (*EncodeFunction)(
-    void *self,
-    uint8_t *buffer,
-    size_t buffer_size
-);
-
-typedef int (*DecodeFunction)(
-    void *self,
-    const uint8_t *buffer,
-    size_t buffer_size
-);
-
-struct MessageBase{
-    EncodeFunction encode;
-    DecodeFunction decode;
-};
-
-
 
 
 typedef struct{
-    MessageBase base;
+    uint64_t sequence_number;
+    ContentType content_type;
+    void *content;
+} Command;
 
-    // content start here
+uint8_t *Command_encode(const Command *msg, uint8_t *buffer, size_t *buffer_size)
+{
+    if (*buffer_size < 9)
+        return NULL;
+
+    size_t offset = 0;
+
+    memcpy(&buffer[offset], &msg->sequence_number, 8);
+    offset += 8;
+
+    buffer[offset++] = (uint8_t)msg->content_type;
+
+    *buffer_size -= offset;
+    return buffer + offset;
+}
+
+const uint8_t *Command_decode(Command *msg, const uint8_t *buffer, size_t *buffer_size)
+{
+    if (*buffer_size < 9)
+        return NULL;
+
+    size_t offset = 0;
+
+    memcpy(&msg->sequence_number, &buffer[offset], 8);
+    offset += 8;
+
+    if (buffer[offset] > 6)
+        return NULL;
+    msg->content_type = (ContentType)buffer[offset++];
+
+    *buffer_size -= offset;
+    return buffer + offset;
+}
+
+typedef struct{
     uint8_t version;
     char device_name[64];
     uint8_t mac_address[6];
@@ -49,80 +74,102 @@ typedef struct{
     void *content;
 } Message;
 
-size_t message_encode(
-    void *self,
-    uint8_t *buffer,
-    size_t buffer_size
-)
+uint8_t *Message_encode(const Message *msg, uint8_t *buffer, size_t *buffer_size)
 {
-    // Convert self back to your Message instance
-    typeof(Message) *message = self;
+    if (*buffer_size < 81)
+        return NULL;
 
     size_t offset = 0;
 
-    if (buffer_size < 81)
-        return 0;
-
-    buffer[offset++] = message->version;
+    buffer[offset++] = msg->version;
 
     memset(&buffer[offset], 0, 64);
-    strncpy(
-        (char *)&buffer[offset],
-        message->device_name,
-        63
-    );
+    strncpy((char *)&buffer[offset], msg->device_name, 63);
     offset += 64;
 
-    memcpy(&buffer[offset], message->mac_address, 6);
+    memcpy(&buffer[offset], msg->mac_address, 6);
     offset += 6;
 
-    memcpy(&buffer[offset], &message->time_stamp, sizeof(double));
-    offset += sizeof(double);
+    memcpy(&buffer[offset], &msg->time_stamp, 8);
+    offset += 8;
 
-    buffer[offset++] = message->is_encrypted;
-    buffer[offset++] = message->content_type;
+    buffer[offset++] = msg->is_encrypted;
 
-    return offset;
+    buffer[offset++] = (uint8_t)msg->content_type;
+
+    *buffer_size -= offset;
+    return buffer + offset;
 }
 
-
-Message message = {
-    .base = {
-        .encode = message_encode
-    },
-
-    .version = 1,
-    .device_name = "",
-    .mac_address = {0},
-    .time_stamp = 0,
-    .is_encrypted = 0,
-    .content_type = NONE,
-    .content = NULL
-};
-
-
-
-
-int main(void)
+const uint8_t *Message_decode(Message *msg, const uint8_t *buffer, size_t *buffer_size)
 {
-    strcpy(message.device_name, "hello there");
+    if (*buffer_size < 81)
+        return NULL;
 
-    uint8_t buffer[81];
+    size_t offset = 0;
 
-    size_t length = message.base.encode(
-        &message.base,
-        buffer,
-        sizeof(buffer)
-    );
+    msg->version = buffer[offset++];
 
-    printf("Encoded %zu bytes:\n", length);
+    memcpy(msg->device_name, &buffer[offset], 64);
+    msg->device_name[63] = '\0';
+    offset += 64;
 
-    for (size_t i = 0; i < length; i++) {
-        printf("%02X ", buffer[i]);
-    }
+    memcpy(msg->mac_address, &buffer[offset], 6);
+    offset += 6;
 
-    printf("\n");
+    memcpy(&msg->time_stamp, &buffer[offset], 8);
+    offset += 8;
 
-    return 0;
+    msg->is_encrypted = buffer[offset++];
+
+    if (buffer[offset] > 6)
+        return NULL;
+    msg->content_type = (ContentType)buffer[offset++];
+
+    *buffer_size -= offset;
+    return buffer + offset;
+}
+
+typedef struct{
+    char ssid[32];
+    char password[64];
+} WifiConnect;
+
+uint8_t *Wifi_Connect_encode(const WifiConnect *msg, uint8_t *buffer, size_t *buffer_size)
+{
+    if (*buffer_size < 96)
+        return NULL;
+
+    size_t offset = 0;
+
+    memset(&buffer[offset], 0, 32);
+    strncpy((char *)&buffer[offset], msg->ssid, 31);
+    offset += 32;
+
+    memset(&buffer[offset], 0, 64);
+    strncpy((char *)&buffer[offset], msg->password, 63);
+    offset += 64;
+
+    *buffer_size -= offset;
+    return buffer + offset;
+}
+
+const uint8_t *Wifi_Connect_decode(WifiConnect *msg, const uint8_t *buffer, size_t *buffer_size)
+{
+    if (*buffer_size < 96)
+        return NULL;
+
+    size_t offset = 0;
+
+    memcpy(msg->ssid, &buffer[offset], 32);
+    msg->ssid[31] = '\0';
+    offset += 32;
+
+    memcpy(msg->password, &buffer[offset], 64);
+    msg->password[63] = '\0';
+    offset += 64;
+
+    *buffer_size -= offset;
+    return buffer + offset;
 }
 

@@ -2,16 +2,50 @@ import protocol
 
 
 
-import inspect
-from dataclasses import is_dataclass
+from dataclasses import is_dataclass, fields, MISSING
 from enum import Enum
+import inspect
+
+
+INT_MAP = {
+    1: "uint8_t",
+    2: "uint16_t",
+    4: "uint32_t",
+    8: "uint64_t",
+}
+
+FLOAT_MAP = {
+    4: "float",
+    8: "double",
+}
+
+
+
+def c_declaration(name, py_type, size, default):
+    """Return the C declaration line for one field in __fields__."""
+
+    if isinstance(default, Enum):
+        return f"{type(default).__name__} {name};"
+
+    if py_type is str:
+        return f"char {name}[{size}];"
+
+    if py_type is float:
+        return f"{FLOAT_MAP[size]} {name};"
+
+    if py_type is int:
+        if size in INT_MAP:
+            return f"{INT_MAP[size]} {name};"
+        return f"uint8_t {name}[{size}];"
+
+    raise TypeError(f"{name}: unsupported type {py_type!r}")
+
 
 
 enums:list[Enum] = []
 message_classes:list[object] = []
 
 
-protocol.MESSAGE_TYPE_REGISTRY
 
 for name, cls in inspect.getmembers(protocol, inspect.isclass):
     if cls.__module__ != protocol.__name__:
@@ -29,27 +63,206 @@ for name, cls in inspect.getmembers(protocol, inspect.isclass):
     elif issubclass(cls, Enum):
         enums.append(cls)
 
-generated_c = ""
 
-# This will loop through the enums and generate the C equivalent enums
+def to_snake(name):
+    out = ""
+    for i, ch in enumerate(name):
+        if ch.isupper() and i:
+            out += "_"
+        out += ch
+    return out
+
+def generate_enum(enum):
+    prefix = to_snake(enum.__name__).upper()
+    lines = [f"typedef enum {enum.__name__} {{"]
+
+    for name, member in enum.__members__.items():
+        lines.append(f"    {prefix}_{name} = {member.value},")
+
+    lines.append(f"}} {enum.__name__};")
+    return "\n".join(lines) + "\n"
+
+
+
+
+
+
+
+def generate_struct(_class):
+    lines = [
+        "typedef struct{",
+    ]
+
+    for f in fields(_class):
+        default = f.default if f.default is not MISSING else None
+
+        if f.name in _class.__fields__:
+            py_type, size = _class.__fields__[f.name]
+            lines.append("    " + c_declaration(f.name, py_type, size, default))
+        else:
+            lines.append(f"    void *{f.name};")
+
+    lines.append(f"}} {_class.__name__};")
+    return "\n".join(lines)
+
+
+def _defaults(_class):
+    return {
+        f.name: (f.default if f.default is not MISSING else None)
+        for f in fields(_class)
+    }
+
+
+def _encode_field(name, py_type, size, default):
+    if isinstance(default, Enum):
+        return [f"buffer[offset++] = (uint8_t)msg->{name};"]
+
+    if py_type is str:
+        return [
+            f"memset(&buffer[offset], 0, {size});",
+            f"strncpy((char *)&buffer[offset], msg->{name}, {size - 1});",
+            f"offset += {size};",
+        ]
+
+    if py_type is int and size == 1:
+        return [f"buffer[offset++] = msg->{name};"]
+
+    if py_type is int and size not in INT_MAP:
+        # byte array in the struct (e.g. mac_address[6]), so no &
+        return [
+            f"memcpy(&buffer[offset], msg->{name}, {size});",
+            f"offset += {size};",
+        ]
+
+    # float, or int of size 2/4/8
+    return [
+        f"memcpy(&buffer[offset], &msg->{name}, {size});",
+        f"offset += {size};",
+    ]
+
+
+def _decode_field(name, py_type, size, default):
+    if isinstance(default, Enum):
+        max_value = max(m.value for m in type(default))
+        return [
+            f"if (buffer[offset] > {max_value})",
+            "    return NULL;",
+            f"msg->{name} = ({type(default).__name__})buffer[offset++];",
+        ]
+
+    if py_type is str:
+        return [
+            f"memcpy(msg->{name}, &buffer[offset], {size});",
+            f"msg->{name}[{size - 1}] = '\\0';",
+            f"offset += {size};",
+        ]
+
+    if py_type is int and size == 1:
+        return [f"msg->{name} = buffer[offset++];"]
+
+    if py_type is int and size not in INT_MAP:
+        return [
+            f"memcpy(msg->{name}, &buffer[offset], {size});",
+            f"offset += {size};",
+        ]
+
+    return [
+        f"memcpy(&msg->{name}, &buffer[offset], {size});",
+        f"offset += {size};",
+    ]
+
+
+def generate_encoder(_class):
+    name = _class.__name__
+    defaults = _defaults(_class)
+
+    lines = [
+        f"uint8_t *{to_snake(name)}_encode(const {name} *msg, uint8_t *buffer, size_t *buffer_size)",
+        "{",
+        f"    if (*buffer_size < {_class.__size__})",
+        "        return NULL;",
+        "",
+        "    size_t offset = 0;",
+        "",
+    ]
+
+    for field_name, (py_type, size) in _class.__fields__.items():
+        for line in _encode_field(field_name, py_type, size, defaults[field_name]):
+            lines.append("    " + line)
+        lines.append("")
+
+    lines += [
+        "    *buffer_size -= offset;",
+        "    return buffer + offset;",
+        "}",
+    ]
+    return "\n".join(lines)
+
+
+def generate_decoder(_class):
+    name = _class.__name__
+    defaults = _defaults(_class)
+
+    lines = [
+        f"const uint8_t *{to_snake(name)}_decode({name} *msg, const uint8_t *buffer, size_t *buffer_size)",
+        "{",
+        f"    if (*buffer_size < {_class.__size__})",
+        "        return NULL;",
+        "",
+        "    size_t offset = 0;",
+        "",
+    ]
+
+    for field_name, (py_type, size) in _class.__fields__.items():
+        for line in _decode_field(field_name, py_type, size, defaults[field_name]):
+            lines.append("    " + line)
+        lines.append("")
+
+    lines += [
+        "    *buffer_size -= offset;",
+        "    return buffer + offset;",
+        "}",
+    ]
+    return "\n".join(lines)
+
+
+
+generated_c = """
+/*
+    THIS CODE IS GENEARTED DO NOT CHANGE, IF YOU WANT TO CHANGE LOOK THROUGH THE
+    PYTHON MIRROR OF THE PROTOCAL AND REGENERATE THE CODE WITH THE GENERATOR
+*/
+
+
+#include <stdint.h>
+#include <stddef.h>
+#include <string.h>
+#include <time.h>
+#include <stdio.h>
+
+
+
+"""
+
+
+
 for enum in enums:
-    fields = enum._member_map_
-    _generated_enum = f"typedef enum {{\n"
+    generated_c += generate_enum(enum) + "\n" * 2
 
-    for field in fields:
-        _generated_enum += f"    {field},\n"
 
-    _generated_enum += f"}} {enum.__name__};\n"
 
-    generated_c += _generated_enum
-
+for _class in message_classes:
+    generated_c += generate_struct(_class) + "\n" * 2
+    generated_c += generate_encoder(_class) + "\n" * 2
+    generated_c += generate_decoder(_class) + "\n" * 2
 
 
 
 
 
-
-print(generated_c)
+if __name__ == "__main__":
+    with open("generated/protocal.c", "w") as f:
+        f.write(generated_c)
 
 
 
