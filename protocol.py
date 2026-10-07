@@ -19,7 +19,7 @@ class MessageBase:
     def to_bytes(self) -> bytes:
         data = b""
 
-        for field, size in self.__fields__.items():
+        for field, (field_type, size) in self.__fields__.items():
             
             value = getattr(self, field)
             if value is None:
@@ -29,8 +29,6 @@ class MessageBase:
                 data += value.to_bytes()
                 continue
 
-
-            field_type, size = self.__fields__[field]
             
             if isinstance(value, str):
                 _bytes = value.encode("utf-8")
@@ -43,12 +41,12 @@ class MessageBase:
                 data += _bytes.ljust(size, b"\x00")
                 
             elif isinstance(value, int):
-                data += value.to_bytes(size, byteorder="big")
+                data += value.to_bytes(size, byteorder="little")
             elif isinstance(value, float):
                 if size == 8:
-                    data += struct.pack(">d", value)
+                    data += struct.pack("<d", value)
                 elif size == 4:
-                    data += struct.pack(">f", value)
+                    data += struct.pack("<f", value)
                 else:
                     raise ValueError(
                         f"Invalid float size: {size}"
@@ -82,13 +80,13 @@ class MessageBase:
             elif field_type is int:
                 value = int.from_bytes(
                     chunk,
-                    byteorder="big"
+                    byteorder="little"
                 )
             elif field_type is float:
                 if size == 8:
-                    value = struct.unpack(">d", chunk)[0]
+                    value = struct.unpack("<d", chunk)[0]
                 elif size == 4:
-                    value = struct.unpack(">f", chunk)[0]
+                    value = struct.unpack("<f", chunk)[0]
                 else:
                     raise ValueError(
                         f"Invalid float size: {size}"
@@ -150,7 +148,7 @@ class Message(MessageBase):
     version: int = _version
     device_name: str = ""
     mac_address: int = 0
-    time_stamp:float = field(default_factory=time.time)
+    time_stamp:float = field(default_factory=lambda: time.time() * 1000)
     is_encrypted: int = 0
     content_type: int = ContentType.NONE
     content: MessageBase = None
@@ -194,6 +192,7 @@ class WifiConnect(MessageBase):
 
 
 MESSAGE_TYPE_REGISTRY = {
+    ContentType.MESSAGE: Message,
     ContentType.COMMAND: Command,
-    ContentType.WIFI_CONNECT: WifiConnect,
+    ContentType.WIFI_CONNECT: WifiConnect
 }

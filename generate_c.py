@@ -226,6 +226,54 @@ def generate_decoder(_class):
     return "\n".join(lines)
 
 
+generated_h = """/*
+    THIS CODE IS GENERATED. DO NOT CHANGE.
+    IF YOU WANT TO CHANGE IT, MODIFY THE PYTHON PROTOCOL
+    AND REGENERATE THIS CODE.
+*/
+
+#ifndef PROTOCOL_H
+#define PROTOCOL_H
+
+#include <stdint.h>
+#include <stddef.h>
+
+"""
+
+
+for enum in enums:
+    generated_h += generate_enum(enum)
+    generated_h += "\n\n"
+
+
+for _class in message_classes:
+
+    generated_h += generate_struct(_class)
+    generated_h += "\n\n"
+
+    name = _class.__name__
+    function_name = to_snake(name)
+
+    generated_h += (
+        f"uint8_t *{function_name}_encode(\n"
+        f"    const {name} *msg,\n"
+        f"    uint8_t *buffer,\n"
+        f"    size_t *buffer_size\n"
+        ");\n\n"
+    )
+
+    generated_h += (
+        f"const uint8_t *{function_name}_decode(\n"
+        f"    {name} *msg,\n"
+        f"    const uint8_t *buffer,\n"
+        f"    size_t *buffer_size\n"
+        ");\n\n"
+    )
+
+
+generated_h += "#endif /* PROTOCOL_H */\n"
+
+
 
 generated_c = """
 /*
@@ -259,9 +307,12 @@ for _class in message_classes:
 
 
 
-
 if __name__ == "__main__":
-    with open("generated/protocal.c", "w") as f:
+
+    with open("generated/protocol.h", "w") as f:
+        f.write(generated_h)
+
+    with open("generated/protocol.c", "w") as f:
         f.write(generated_c)
 
 
