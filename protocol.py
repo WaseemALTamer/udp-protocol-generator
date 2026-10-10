@@ -135,8 +135,42 @@ class ContentType(IntEnum):
     COMMAND = 2
     INFORMATION = 3
     DISCOVERY = 4
-    ONLINE = 5
     WIFI_CONNECT = 6
+    SET_DEVICE_STATUS = 7
+    SET_DEVICE_NAME = 8
+
+
+
+
+class DeviceStatus(IntEnum):
+    NONE = 0
+    BOOTING = 1
+    
+    NORMAL = 4
+
+    NETWORK_ERROR = 5
+    UNKNOWN_ERROR = 6
+    SENSORS_ERROR = 7
+
+    # Temperature / Humidity / CO2 sensor
+    TH_SENSOR_ERROR = 8
+    TEMPERATURE_ERROR = 9
+    HUMIDITY_ERROR = 10
+    CO2_ERROR = 11
+
+    # Methane sensor
+    METHANE_SENSOR_ERROR = 12
+    METHANE_DETECTED = 13
+    METHANE_LEVEL_HIGH = 14
+
+    # Smoke sensor
+    SMOKE_SENSOR_ERROR = 15
+    SMOKE_DETECTED = 16
+    SMOKE_LEVEL_HIGH = 17
+
+
+    WARNING = 18
+    DANGER = 19
     
 
 
@@ -148,7 +182,7 @@ class Message(MessageBase):
     version: int = _version
     device_name: str = ""
     mac_address: int = 0
-    time_stamp:float = field(default_factory=lambda: time.time() * 1000)
+    time_stamp:float = field(default_factory=lambda: time.time())
     is_encrypted: int = 0
     content_type: int = ContentType.NONE
     content: MessageBase = None
@@ -161,6 +195,38 @@ class Message(MessageBase):
         "time_stamp": (float, 8),
         "is_encrypted": (int, 1),
         "content_type": (int, 1),
+    }
+
+
+@dataclass
+class Information(MessageBase):
+    status: int = DeviceStatus.NONE
+    temperature: float = 0.0
+    humidity: float = 0.0
+    carbon_dioxide: float = 0.0
+    methane: float = 0.0
+    smoke: float = 0.0
+
+    __size__ = 21
+    __fields__ = {
+        "status": (int, 1),
+        "temperature": (float, 4),
+        "humidity": (float, 4),
+        "carbon_dioxide": (float, 4),
+        "methane": (float, 4),
+        "smoke": (float, 4),
+    }
+
+
+@dataclass
+class Discovery(MessageBase):
+    # empty message this meassage  will be used
+    # to ping the esp32 or discover if it is on
+    # the network
+
+    __size__ = 0
+    __fields__ = {
+
     }
 
 
@@ -179,6 +245,10 @@ class Command(MessageBase): # this class can be encreapted later on
         "content_type": (int, 1),
     }
 
+
+
+
+# Command Message
 @dataclass
 class WifiConnect(MessageBase):
     ssid:str = ""
@@ -190,9 +260,37 @@ class WifiConnect(MessageBase):
         "password": (str, 64),
     }
 
+# Command Message
+@dataclass
+class SetDeviceName(MessageBase):
+    device_name: str = ""
+
+    __size__ = 64
+    __fields__ = {
+        "device_name": (str, 64),
+    }
+
+# Command Message
+@dataclass
+class SetDeviceStatus(MessageBase):
+    status:int = DeviceStatus.NONE
+    
+    __size__ = 1
+    __fields__ = {
+        "status": (int, 1),
+    }
+
+
+
+
+
 
 MESSAGE_TYPE_REGISTRY = {
     ContentType.MESSAGE: Message,
     ContentType.COMMAND: Command,
-    ContentType.WIFI_CONNECT: WifiConnect
+    ContentType.WIFI_CONNECT: WifiConnect,
+    ContentType.SET_DEVICE_STATUS : SetDeviceStatus,
+    ContentType.INFORMATION : Information,
+    ContentType.SET_DEVICE_NAME : SetDeviceName,
+    ContentType.DISCOVERY : Discovery
 }

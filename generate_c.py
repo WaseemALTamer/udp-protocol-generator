@@ -177,7 +177,7 @@ def generate_encoder(_class):
     defaults = _defaults(_class)
 
     lines = [
-        f"uint8_t *{to_snake(name)}_encode(const {name} *msg, uint8_t *buffer, size_t *buffer_size)",
+        f"uint8_t *{to_snake(name).lower()}_encode(const {name} *msg, uint8_t *buffer, size_t *buffer_size)",
         "{",
         f"    if (*buffer_size < {_class.__size__})",
         "        return NULL;",
@@ -204,7 +204,7 @@ def generate_decoder(_class):
     defaults = _defaults(_class)
 
     lines = [
-        f"const uint8_t *{to_snake(name)}_decode({name} *msg, const uint8_t *buffer, size_t *buffer_size)",
+        f"const uint8_t *{to_snake(name).lower()}_decode({name} *msg, const uint8_t *buffer, size_t *buffer_size)",
         "{",
         f"    if (*buffer_size < {_class.__size__})",
         "        return NULL;",
@@ -252,7 +252,7 @@ for _class in message_classes:
     generated_h += "\n\n"
 
     name = _class.__name__
-    function_name = to_snake(name)
+    function_name = to_snake(name).lower()
 
     generated_h += (
         f"uint8_t *{function_name}_encode(\n"
