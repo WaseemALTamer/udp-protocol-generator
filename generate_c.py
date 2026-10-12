@@ -1,3 +1,9 @@
+from pathlib import Path
+BASE_DIR = Path(__file__).resolve().parent
+
+
+
+
 import protocol
 
 
@@ -5,6 +11,8 @@ import protocol
 from dataclasses import is_dataclass, fields, MISSING
 from enum import Enum
 import inspect
+import shutil
+import os
 
 
 INT_MAP = {
@@ -241,16 +249,27 @@ generated_h = """/*
 """
 
 
+# Generate enums and structs first
 for enum in enums:
     generated_h += generate_enum(enum)
     generated_h += "\n\n"
 
 
 for _class in message_classes:
-
     generated_h += generate_struct(_class)
     generated_h += "\n\n"
 
+
+# Use C linkage for function declarations when included from C++
+generated_h += """
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+"""
+
+
+for _class in message_classes:
     name = _class.__name__
     function_name = to_snake(name).lower()
 
@@ -271,7 +290,13 @@ for _class in message_classes:
     )
 
 
-generated_h += "#endif /* PROTOCOL_H */\n"
+generated_h += """
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* PROTOCOL_H */
+"""
 
 
 
@@ -281,6 +306,7 @@ generated_c = """
     PYTHON MIRROR OF THE PROTOCAL AND REGENERATE THE CODE WITH THE GENERATOR
 */
 
+#include "protocol.h"
 
 #include <stdint.h>
 #include <stddef.h>
@@ -294,13 +320,11 @@ generated_c = """
 
 
 
-for enum in enums:
-    generated_c += generate_enum(enum) + "\n" * 2
+
 
 
 
 for _class in message_classes:
-    generated_c += generate_struct(_class) + "\n" * 2
     generated_c += generate_encoder(_class) + "\n" * 2
     generated_c += generate_decoder(_class) + "\n" * 2
 
@@ -309,11 +333,22 @@ for _class in message_classes:
 
 if __name__ == "__main__":
 
-    with open("generated/protocol.h", "w") as f:
+    folder = "generated"
+    os.makedirs(folder, exist_ok=True)
+
+    header_file_path = os.path.join(folder, "protocol.h")
+    implementation_file_path = os.path.join(folder, "protocol.c")
+
+
+    with open(header_file_path, "w") as f:
         f.write(generated_h)
 
-    with open("generated/protocol.c", "w") as f:
+    with open(implementation_file_path, "w") as f:
         f.write(generated_c)
 
+    protocol_python_path = os.path.join(BASE_DIR, "protocol.py")
+    protocol_python_copy_path = os.path.join(folder, "protocol.py")
+
+    shutil.copy(protocol_python_path, protocol_python_copy_path)
 
 
