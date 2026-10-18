@@ -129,51 +129,58 @@ class MessageBase:
 
 
 
+
+
+
+
+
+
+
 class ContentType(IntEnum):
     NONE = 0
-    MESSAGE = 1
-    COMMAND = 2
-    INFORMATION = 3
-    DISCOVERY = 4
-    WIFI_CONNECT = 5
-    SET_DEVICE_STATUS = 6
-    SET_DEVICE_NAME = 7
+    BYTES_STREAM = 1
+    MESSAGE = 2
+    COMMAND = 3
+    INFORMATION = 4
+    DISCOVERY = 5
+    WIFI_CONNECT = 6
+    SET_DEVICE_STATUS = 7
+    SET_DEVICE_NAME = 8
+    SET_DATE_TIME = 9
 
 
 
-
-class DeviceStatus(IntEnum):
-    NONE = 0
-    BOOTING = 1
-    
-    NORMAL = 2
-
-    NETWORK_ERROR = 3
-    UNKNOWN_ERROR = 4
-    SENSORS_ERROR = 5
-
-    # Temperature / Humidity / CO2 sensor
-    TH_SENSOR_ERROR = 6
-    TEMPERATURE_ERROR = 7
-    HUMIDITY_ERROR = 8
-    CO2_ERROR = 9
-
-    # Methane sensor
-    METHANE_SENSOR_ERROR = 10
-    METHANE_DETECTED = 11
-    METHANE_LEVEL_HIGH = 12
-
-    # Smoke sensor
-    SMOKE_SENSOR_ERROR = 13
-    SMOKE_DETECTED = 14
-    SMOKE_LEVEL_HIGH = 15
+# streams are always at the end of the message and not inside a message
+@dataclass
+class BytesStream(MessageBase): # this would be at the end of a message
+    length: int = 0
+    content: list[bytes] = field(default_factory=list)
 
 
-    WARNING = 16
-    DANGER = 17
-    
+    __size__ = 4
+    __fields__ = {
+        "length": (int, 4),
+    }
+
+    def to_bytes(self) -> bytes:
+        data = b""
+        self.length = len(self.content)
+        data += self.length.to_bytes(self.__fields__["length"][1], byteorder="little") 
+        data += bytearray(self.content)
+        return data
 
 
+    def decode(self, data: bytes) -> "BytesStream":
+        size = self.__fields__["length"][1]
+
+        self.length = int.from_bytes(
+            data[:size],
+            byteorder="little"
+        )
+
+        self.content = [data[size:]]
+
+        return self
 
 
 
@@ -198,23 +205,25 @@ class Message(MessageBase):
     }
 
 
+
+
+class DeviceStatus(IntEnum):
+    NONE = 0
+    BOOTING = 1
+    NORMAL = 2
+
+    NETWORK_ERROR = 3
+    UNKNOWN_ERROR = 4
+
+
+
 @dataclass
 class Information(MessageBase):
-    status: int = DeviceStatus.NONE
-    temperature: float = 0.0
-    humidity: float = 0.0
-    carbon_dioxide: float = 0.0
-    natrual_gas: float = 0.0
-    smoke: float = 0.0
 
-    __size__ = 21
+
+    __size__ = 0
     __fields__ = {
-        "status": (int, 1),
-        "temperature": (float, 4),
-        "humidity": (float, 4),
-        "carbon_dioxide": (float, 4),
-        "natrual_gas": (float, 4),
-        "smoke": (float, 4),
+
     }
 
 
@@ -244,7 +253,6 @@ class Command(MessageBase): # this class can be encreapted later on
         "sequence_number": (int, 8),
         "content_type": (int, 1),
     }
-
 
 
 
@@ -281,16 +289,40 @@ class SetDeviceStatus(MessageBase):
     }
 
 
+# Command Message
+@dataclass
+class SetDateTime(MessageBase):
+    seconds:int = 0
+    minutes:int = 0
+    hours:int = 0
+
+    day:int = 0
+    month:int = 0
+    year:int = 0
+    
+    __size__ = 6
+    __fields__ = {
+        "seconds": (int, 1),
+        "minutes": (int, 1),
+        "hours": (int, 1),
+        "day": (int, 1),
+        "month": (int, 1),
+        "year": (int, 4)
+    }
+
+
 
 
 
 
 MESSAGE_TYPE_REGISTRY = {
     ContentType.MESSAGE: Message,
+    ContentType.BYTES_STREAM: BytesStream,
     ContentType.COMMAND: Command,
     ContentType.WIFI_CONNECT: WifiConnect,
     ContentType.SET_DEVICE_STATUS : SetDeviceStatus,
     ContentType.INFORMATION : Information,
     ContentType.SET_DEVICE_NAME : SetDeviceName,
-    ContentType.DISCOVERY : Discovery
+    ContentType.DISCOVERY : Discovery,
+    ContentType.SET_DATE_TIME: SetDateTime
 }

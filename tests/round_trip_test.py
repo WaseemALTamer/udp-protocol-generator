@@ -3,7 +3,18 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from protocol import *
+from protocol import (
+    MessageBase,
+    Message,
+    Information,
+    Discovery,
+    Command,
+    WifiConnect,
+    SetDeviceName,
+    SetDeviceStatus,
+    ContentType,
+    DeviceStatus,
+)
 
 
 def test_message_round_trip():
@@ -26,7 +37,7 @@ def test_message_round_trip():
     decoded = Message()
     decoded.decode(encoded)
 
-    assert decoded.version == m.version
+
     assert decoded.content_type == ContentType.COMMAND
 
     assert isinstance(decoded.content, Command)

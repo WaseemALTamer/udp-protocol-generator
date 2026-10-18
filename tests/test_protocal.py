@@ -44,7 +44,7 @@ class TestMessageEncoding(unittest.TestCase):
             temperature=23.5,
             humidity=55.2,
             carbon_dioxide=650.0,
-            methane=0.12,
+            natrual_gas=0.12,
             smoke=0.05,
         )
 
@@ -55,7 +55,7 @@ class TestMessageEncoding(unittest.TestCase):
         self.assertAlmostEqual(decoded.temperature, 23.5)
         self.assertAlmostEqual(decoded.humidity, 55.2, places=5)
         self.assertAlmostEqual(decoded.carbon_dioxide, 650.0)
-        self.assertAlmostEqual(decoded.methane, 0.12, places=5)
+        self.assertAlmostEqual(decoded.natrual_gas, 0.12, places=5)
         self.assertAlmostEqual(decoded.smoke, 0.05, places=5)
 
     def test_information_zero_values(self):
@@ -68,7 +68,7 @@ class TestMessageEncoding(unittest.TestCase):
         self.assertEqual(decoded.temperature, 0.0)
         self.assertEqual(decoded.humidity, 0.0)
         self.assertEqual(decoded.carbon_dioxide, 0.0)
-        self.assertEqual(decoded.methane, 0.0)
+        self.assertEqual(decoded.natrual_gas, 0.0)
         self.assertEqual(decoded.smoke, 0.0)
 
     # --------------------------------------------------
@@ -246,7 +246,6 @@ class TestMessageEncoding(unittest.TestCase):
 
     def test_message_with_information(self):
         original = Message(
-            version=1,
             device_name="ESP32_Test",
             mac_address=0x123456789ABC,
             time_stamp=1700000000.0,
@@ -257,15 +256,14 @@ class TestMessageEncoding(unittest.TestCase):
                 temperature=22.5,
                 humidity=48.0,
                 carbon_dioxide=500.0,
-                methane=0.0,
+                natrual_gas=0.0,
                 smoke=0.0,
             ),
         )
 
         encoded, decoded = self.assert_round_trip(original)
 
-        self.assertEqual(len(encoded), 81 + 21)
-        self.assertEqual(decoded.version, 1)
+        self.assertEqual(len(encoded), 80 + 21)
         self.assertEqual(decoded.device_name, "ESP32_Test")
         self.assertEqual(decoded.mac_address, 0x123456789ABC)
         self.assertEqual(decoded.time_stamp, 1700000000.0)
@@ -300,7 +298,7 @@ class TestMessageEncoding(unittest.TestCase):
 
         encoded, decoded = self.assert_round_trip(original)
 
-        self.assertEqual(len(encoded), 81 + 9 + 64)
+        self.assertEqual(len(encoded), 80 + 9 + 64)
         self.assertIsInstance(decoded.content, Command)
         self.assertEqual(decoded.content.sequence_number, 100)
         self.assertIsInstance(
@@ -318,7 +316,6 @@ class TestMessageEncoding(unittest.TestCase):
         encoded, decoded = self.assert_round_trip(original)
 
         self.assertEqual(len(encoded), Message.__size__)
-        self.assertEqual(decoded.version, 1)
         self.assertEqual(decoded.device_name, "")
         self.assertEqual(decoded.mac_address, 0)
         self.assertEqual(decoded.is_encrypted, 0)
@@ -348,7 +345,7 @@ class TestMessageEncoding(unittest.TestCase):
         self.assertEqual(Command.__size__, 9)
 
     def test_message_header_size(self):
-        self.assertEqual(Message.__size__, 81)
+        self.assertEqual(Message.__size__, 80)
 
     def test_message_timestamp_is_eight_bytes(self):
         original = Message(time_stamp=1700000000.0)

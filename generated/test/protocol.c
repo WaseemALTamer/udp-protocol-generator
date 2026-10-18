@@ -4,6 +4,7 @@
     PYTHON MIRROR OF THE PROTOCAL AND REGENERATE THE CODE WITH THE GENERATOR
 */
 
+#include "protocol.h"
 
 #include <stdint.h>
 #include <stddef.h>
@@ -13,45 +14,37 @@
 
 
 
-typedef enum ContentType {
-    CONTENT_TYPE_NONE = 0,
-    CONTENT_TYPE_MESSAGE = 1,
-    CONTENT_TYPE_COMMAND = 2,
-    CONTENT_TYPE_INFORMATION = 3,
-    CONTENT_TYPE_DISCOVERY = 4,
-    CONTENT_TYPE_WIFI_CONNECT = 6,
-    CONTENT_TYPE_SET_DEVICE_STATUS = 7,
-    CONTENT_TYPE_SET_DEVICE_NAME = 8,
-} ContentType;
+uint8_t *bytes_stream_encode(const BytesStream *msg, uint8_t *buffer, size_t *buffer_size)
+{
+    if (*buffer_size < 4)
+        return NULL;
 
+    size_t offset = 0;
 
-typedef enum DeviceStatus {
-    DEVICE_STATUS_NONE = 0,
-    DEVICE_STATUS_BOOTING = 1,
-    DEVICE_STATUS_NORMAL = 4,
-    DEVICE_STATUS_NETWORK_ERROR = 5,
-    DEVICE_STATUS_UNKNOWN_ERROR = 6,
-    DEVICE_STATUS_SENSORS_ERROR = 7,
-    DEVICE_STATUS_TH_SENSOR_ERROR = 8,
-    DEVICE_STATUS_TEMPERATURE_ERROR = 9,
-    DEVICE_STATUS_HUMIDITY_ERROR = 10,
-    DEVICE_STATUS_CO2_ERROR = 11,
-    DEVICE_STATUS_METHANE_SENSOR_ERROR = 12,
-    DEVICE_STATUS_METHANE_DETECTED = 13,
-    DEVICE_STATUS_METHANE_LEVEL_HIGH = 14,
-    DEVICE_STATUS_SMOKE_SENSOR_ERROR = 15,
-    DEVICE_STATUS_SMOKE_DETECTED = 16,
-    DEVICE_STATUS_SMOKE_LEVEL_HIGH = 17,
-    DEVICE_STATUS_WARNING = 18,
-    DEVICE_STATUS_DANGER = 19,
-} DeviceStatus;
+    memcpy(&buffer[offset], &msg->length, 4);
+    offset += 4;
 
+    *buffer_size -= offset;
+    return buffer + offset;
+}
 
-typedef struct{
-    uint64_t sequence_number;
-    ContentType content_type;
-    void *content;
-} Command;
+const uint8_t *bytes_stream_decode(BytesStream *msg, const uint8_t *buffer, size_t *buffer_size)
+{
+    if (msg == NULL || buffer == NULL || buffer_size == NULL)
+        return NULL;
+    if (*buffer_size < 4)
+        return NULL;
+
+    size_t offset = 0;
+
+    memcpy(&msg->length, &buffer[offset], 4);
+    offset += 4;
+
+    msg->content = buffer + offset;
+
+    *buffer_size -= offset;
+    return buffer + offset;
+}
 
 uint8_t *command_encode(const Command *msg, uint8_t *buffer, size_t *buffer_size)
 {
@@ -71,6 +64,8 @@ uint8_t *command_encode(const Command *msg, uint8_t *buffer, size_t *buffer_size
 
 const uint8_t *command_decode(Command *msg, const uint8_t *buffer, size_t *buffer_size)
 {
+    if (msg == NULL || buffer == NULL || buffer_size == NULL)
+        return NULL;
     if (*buffer_size < 9)
         return NULL;
 
@@ -79,16 +74,15 @@ const uint8_t *command_decode(Command *msg, const uint8_t *buffer, size_t *buffe
     memcpy(&msg->sequence_number, &buffer[offset], 8);
     offset += 8;
 
-    if (buffer[offset] > 8)
+    if (buffer[offset] > 9)
         return NULL;
     msg->content_type = (ContentType)buffer[offset++];
+
+    msg->content = buffer + offset;
 
     *buffer_size -= offset;
     return buffer + offset;
 }
-
-typedef struct{
-} Discovery;
 
 uint8_t *discovery_encode(const Discovery *msg, uint8_t *buffer, size_t *buffer_size)
 {
@@ -103,6 +97,8 @@ uint8_t *discovery_encode(const Discovery *msg, uint8_t *buffer, size_t *buffer_
 
 const uint8_t *discovery_decode(Discovery *msg, const uint8_t *buffer, size_t *buffer_size)
 {
+    if (msg == NULL || buffer == NULL || buffer_size == NULL)
+        return NULL;
     if (*buffer_size < 0)
         return NULL;
 
@@ -112,38 +108,12 @@ const uint8_t *discovery_decode(Discovery *msg, const uint8_t *buffer, size_t *b
     return buffer + offset;
 }
 
-typedef struct{
-    DeviceStatus status;
-    float temperature;
-    float humidity;
-    float carbon_dioxide;
-    float methane;
-    float smoke;
-} Information;
-
 uint8_t *information_encode(const Information *msg, uint8_t *buffer, size_t *buffer_size)
 {
-    if (*buffer_size < 21)
+    if (*buffer_size < 0)
         return NULL;
 
     size_t offset = 0;
-
-    buffer[offset++] = (uint8_t)msg->status;
-
-    memcpy(&buffer[offset], &msg->temperature, 4);
-    offset += 4;
-
-    memcpy(&buffer[offset], &msg->humidity, 4);
-    offset += 4;
-
-    memcpy(&buffer[offset], &msg->carbon_dioxide, 4);
-    offset += 4;
-
-    memcpy(&buffer[offset], &msg->methane, 4);
-    offset += 4;
-
-    memcpy(&buffer[offset], &msg->smoke, 4);
-    offset += 4;
 
     *buffer_size -= offset;
     return buffer + offset;
@@ -151,52 +121,23 @@ uint8_t *information_encode(const Information *msg, uint8_t *buffer, size_t *buf
 
 const uint8_t *information_decode(Information *msg, const uint8_t *buffer, size_t *buffer_size)
 {
-    if (*buffer_size < 21)
+    if (msg == NULL || buffer == NULL || buffer_size == NULL)
+        return NULL;
+    if (*buffer_size < 0)
         return NULL;
 
     size_t offset = 0;
-
-    if (buffer[offset] > 19)
-        return NULL;
-    msg->status = (DeviceStatus)buffer[offset++];
-
-    memcpy(&msg->temperature, &buffer[offset], 4);
-    offset += 4;
-
-    memcpy(&msg->humidity, &buffer[offset], 4);
-    offset += 4;
-
-    memcpy(&msg->carbon_dioxide, &buffer[offset], 4);
-    offset += 4;
-
-    memcpy(&msg->methane, &buffer[offset], 4);
-    offset += 4;
-
-    memcpy(&msg->smoke, &buffer[offset], 4);
-    offset += 4;
 
     *buffer_size -= offset;
     return buffer + offset;
 }
 
-typedef struct{
-    uint8_t version;
-    char device_name[64];
-    uint8_t mac_address[6];
-    double time_stamp;
-    uint8_t is_encrypted;
-    ContentType content_type;
-    void *content;
-} Message;
-
 uint8_t *message_encode(const Message *msg, uint8_t *buffer, size_t *buffer_size)
 {
-    if (*buffer_size < 81)
+    if (*buffer_size < 80)
         return NULL;
 
     size_t offset = 0;
-
-    buffer[offset++] = msg->version;
 
     memset(&buffer[offset], 0, 64);
     strncpy((char *)&buffer[offset], msg->device_name, 63);
@@ -218,12 +159,12 @@ uint8_t *message_encode(const Message *msg, uint8_t *buffer, size_t *buffer_size
 
 const uint8_t *message_decode(Message *msg, const uint8_t *buffer, size_t *buffer_size)
 {
-    if (*buffer_size < 81)
+    if (msg == NULL || buffer == NULL || buffer_size == NULL)
+        return NULL;
+    if (*buffer_size < 80)
         return NULL;
 
     size_t offset = 0;
-
-    msg->version = buffer[offset++];
 
     memcpy(msg->device_name, &buffer[offset], 64);
     msg->device_name[63] = '\0';
@@ -237,17 +178,65 @@ const uint8_t *message_decode(Message *msg, const uint8_t *buffer, size_t *buffe
 
     msg->is_encrypted = buffer[offset++];
 
-    if (buffer[offset] > 8)
+    if (buffer[offset] > 9)
         return NULL;
     msg->content_type = (ContentType)buffer[offset++];
+
+    msg->content = buffer + offset;
 
     *buffer_size -= offset;
     return buffer + offset;
 }
 
-typedef struct{
-    char device_name[64];
-} SetDeviceName;
+uint8_t *set_date_time_encode(const SetDateTime *msg, uint8_t *buffer, size_t *buffer_size)
+{
+    if (*buffer_size < 6)
+        return NULL;
+
+    size_t offset = 0;
+
+    buffer[offset++] = msg->seconds;
+
+    buffer[offset++] = msg->minutes;
+
+    buffer[offset++] = msg->hours;
+
+    buffer[offset++] = msg->day;
+
+    buffer[offset++] = msg->month;
+
+    memcpy(&buffer[offset], &msg->year, 4);
+    offset += 4;
+
+    *buffer_size -= offset;
+    return buffer + offset;
+}
+
+const uint8_t *set_date_time_decode(SetDateTime *msg, const uint8_t *buffer, size_t *buffer_size)
+{
+    if (msg == NULL || buffer == NULL || buffer_size == NULL)
+        return NULL;
+    if (*buffer_size < 6)
+        return NULL;
+
+    size_t offset = 0;
+
+    msg->seconds = buffer[offset++];
+
+    msg->minutes = buffer[offset++];
+
+    msg->hours = buffer[offset++];
+
+    msg->day = buffer[offset++];
+
+    msg->month = buffer[offset++];
+
+    memcpy(&msg->year, &buffer[offset], 4);
+    offset += 4;
+
+    *buffer_size -= offset;
+    return buffer + offset;
+}
 
 uint8_t *set_device_name_encode(const SetDeviceName *msg, uint8_t *buffer, size_t *buffer_size)
 {
@@ -266,6 +255,8 @@ uint8_t *set_device_name_encode(const SetDeviceName *msg, uint8_t *buffer, size_
 
 const uint8_t *set_device_name_decode(SetDeviceName *msg, const uint8_t *buffer, size_t *buffer_size)
 {
+    if (msg == NULL || buffer == NULL || buffer_size == NULL)
+        return NULL;
     if (*buffer_size < 64)
         return NULL;
 
@@ -278,10 +269,6 @@ const uint8_t *set_device_name_decode(SetDeviceName *msg, const uint8_t *buffer,
     *buffer_size -= offset;
     return buffer + offset;
 }
-
-typedef struct{
-    DeviceStatus status;
-} SetDeviceStatus;
 
 uint8_t *set_device_status_encode(const SetDeviceStatus *msg, uint8_t *buffer, size_t *buffer_size)
 {
@@ -298,23 +285,20 @@ uint8_t *set_device_status_encode(const SetDeviceStatus *msg, uint8_t *buffer, s
 
 const uint8_t *set_device_status_decode(SetDeviceStatus *msg, const uint8_t *buffer, size_t *buffer_size)
 {
+    if (msg == NULL || buffer == NULL || buffer_size == NULL)
+        return NULL;
     if (*buffer_size < 1)
         return NULL;
 
     size_t offset = 0;
 
-    if (buffer[offset] > 19)
+    if (buffer[offset] > 4)
         return NULL;
     msg->status = (DeviceStatus)buffer[offset++];
 
     *buffer_size -= offset;
     return buffer + offset;
 }
-
-typedef struct{
-    char ssid[32];
-    char password[64];
-} WifiConnect;
 
 uint8_t *wifi_connect_encode(const WifiConnect *msg, uint8_t *buffer, size_t *buffer_size)
 {
@@ -337,6 +321,8 @@ uint8_t *wifi_connect_encode(const WifiConnect *msg, uint8_t *buffer, size_t *bu
 
 const uint8_t *wifi_connect_decode(WifiConnect *msg, const uint8_t *buffer, size_t *buffer_size)
 {
+    if (msg == NULL || buffer == NULL || buffer_size == NULL)
+        return NULL;
     if (*buffer_size < 96)
         return NULL;
 

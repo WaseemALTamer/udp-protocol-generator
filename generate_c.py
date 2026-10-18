@@ -108,7 +108,7 @@ def generate_struct(_class):
             py_type, size = _class.__fields__[f.name]
             lines.append("    " + c_declaration(f.name, py_type, size, default))
         else:
-            lines.append(f"    void *{f.name};")
+            lines.append(f"    const uint8_t *{f.name};")
 
     lines.append(f"}} {_class.__name__};")
     return "\n".join(lines)
@@ -211,9 +211,15 @@ def generate_decoder(_class):
     name = _class.__name__
     defaults = _defaults(_class)
 
+    has_content = any(
+        f.name == "content" for f in fields(_class)
+    )
+
     lines = [
         f"const uint8_t *{to_snake(name).lower()}_decode({name} *msg, const uint8_t *buffer, size_t *buffer_size)",
         "{",
+        "    if (msg == NULL || buffer == NULL || buffer_size == NULL)",
+        "        return NULL;",
         f"    if (*buffer_size < {_class.__size__})",
         "        return NULL;",
         "",
@@ -222,17 +228,25 @@ def generate_decoder(_class):
     ]
 
     for field_name, (py_type, size) in _class.__fields__.items():
-        for line in _decode_field(field_name, py_type, size, defaults[field_name]):
+        for line in _decode_field(
+            field_name, py_type, size, defaults[field_name]
+        ):
             lines.append("    " + line)
         lines.append("")
+
+    if has_content:
+        lines += [
+            "    msg->content = buffer + offset;",
+            "",
+        ]
 
     lines += [
         "    *buffer_size -= offset;",
         "    return buffer + offset;",
         "}",
     ]
-    return "\n".join(lines)
 
+    return "\n".join(lines)
 
 generated_h = """/*
     THIS CODE IS GENERATED. DO NOT CHANGE.
@@ -350,5 +364,4 @@ if __name__ == "__main__":
     protocol_python_copy_path = os.path.join(folder, "protocol.py")
 
     shutil.copy(protocol_python_path, protocol_python_copy_path)
-
 
