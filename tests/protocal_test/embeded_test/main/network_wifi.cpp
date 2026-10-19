@@ -1,6 +1,8 @@
 #include <WiFiUdp.h>
 #include <WiFi.h>
 
+#include <esp_crc.h>
+
 #include <Arduino.h>
 #include "config.h"
 
@@ -137,17 +139,45 @@ namespace NetworkWifi{
         }
 
 
-        // now we can handel reading messages
         int packetSize = udp.parsePacket();
+
         if (packetSize > 0) {
             IPAddress senderIP = udp.remoteIP();
-            int senderPort = udp.remotePort();
+            uint16_t senderPort = udp.remotePort();
 
             uint8_t buffer[2048];
-            int len = udp.read(buffer, 2048); // limit it to 2048
+            int len = udp.read(buffer, sizeof(buffer));
 
-            ProtocalEventHandler::handle_message(buffer, len, senderIP, senderPort);
-            //MessageManager::decode_message(buffer, len, senderIP, senderPort);
+            if (len < 4) {
+                Serial.println("Packet too short for CRC");
+                return;
+            }
+
+            uint32_t receivedCRC =
+                (uint32_t)buffer[0] |
+                ((uint32_t)buffer[1] << 8) |
+                ((uint32_t)buffer[2] << 16) |
+                ((uint32_t)buffer[3] << 24);
+
+            uint32_t calculatedCRC = esp_crc32_le(
+                0,
+                buffer + 4,
+                (uint32_t)(len - 4)
+            );
+
+            
+            if (receivedCRC != calculatedCRC) {
+                Serial.println("CRC mismatch — packet rejected");
+                return;
+            }
+
+
+            ProtocalEventHandler::handle_message(
+                buffer + 4,
+                len - 4,
+                senderIP,
+                senderPort
+            );
         }
 
     }
