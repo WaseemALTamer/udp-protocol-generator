@@ -8,7 +8,7 @@ from enum import IntEnum
 import struct
 import time
 
-_version = 1
+_version = 2
 
 
 class MessageBase:
@@ -186,7 +186,7 @@ class BytesStream(MessageBase): # this would be at the end of a message
 
 @dataclass
 class Message(MessageBase):
-    #version: int = _version # this is not going to be inlcuded in the demo
+    version: int = _version # this is not going to be inlcuded in the demo
     device_name: str = ""
     mac_address: int = 0
     time_stamp:float = field(default_factory=lambda: time.time())
@@ -196,7 +196,7 @@ class Message(MessageBase):
 
     __size__ = 80 # dont try to caulcate it since it will be used to auto genearte the c code
     __fields__ = {
-        #"version": (int, 1),
+        "version": (int, 1),
         "device_name": (str, 64),
         "mac_address": (int, 6),
         "time_stamp": (float, 8),
@@ -214,6 +214,9 @@ class DeviceStatus(IntEnum):
 
     NETWORK_ERROR = 3
     UNKNOWN_ERROR = 4
+
+
+    
 
 
 
@@ -253,7 +256,6 @@ class Command(MessageBase): # this class can be encreapted later on
         "sequence_number": (int, 8),
         "content_type": (int, 1),
     }
-
 
 
 # Command Message

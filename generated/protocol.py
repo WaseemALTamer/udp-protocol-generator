@@ -8,7 +8,7 @@ from enum import IntEnum
 import struct
 import time
 
-_version = 1
+_version = 2
 
 
 class MessageBase:
@@ -186,7 +186,7 @@ class BytesStream(MessageBase): # this would be at the end of a message
 
 @dataclass
 class Message(MessageBase):
-    #version: int = _version # this is not going to be inlcuded in the demo
+    version: int = _version # this is not going to be inlcuded in the demo
     device_name: str = ""
     mac_address: int = 0
     time_stamp:float = field(default_factory=lambda: time.time())
@@ -196,7 +196,7 @@ class Message(MessageBase):
 
     __size__ = 80 # dont try to caulcate it since it will be used to auto genearte the c code
     __fields__ = {
-        #"version": (int, 1),
+        "version": (int, 1),
         "device_name": (str, 64),
         "mac_address": (int, 6),
         "time_stamp": (float, 8),
@@ -214,6 +214,9 @@ class DeviceStatus(IntEnum):
 
     NETWORK_ERROR = 3
     UNKNOWN_ERROR = 4
+
+
+    
 
 
 
@@ -251,35 +254,6 @@ class Command(MessageBase): # this class can be encreapted later on
     __size__ = 9
     __fields__ = {
         "sequence_number": (int, 8),
-        "content_type": (int, 1),
-    }
-
-
-class RGBStream(MessageBase):
-
-
-    duration:int = 0
-
-    __size__ = 6
-    __fields__ = {
-        "number": (int, 2),
-        "duration": (int, 1),
-        "content_type": (int, 1),
-    }
-
-class LED(MessageBase):
-    red:int = 0
-    green:int = 0
-    blue:int = 0
-    content_type:MessageBase = ContentType.NONE
-    content: MessageBase = None
-
-
-    __size__ = 4
-    __fields__ = {
-        "red": (int, 1),
-        "green": (int, 1),
-        "blue": (int, 1),
         "content_type": (int, 1),
     }
 
