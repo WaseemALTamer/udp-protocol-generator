@@ -1,0 +1,3 @@
+
+python generate_c.py
+python generate_event_handler_embeded_cpp.py
