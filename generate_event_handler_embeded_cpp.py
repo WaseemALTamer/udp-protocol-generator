@@ -68,6 +68,88 @@ def generate_release_code(protocol_classes):
     return "\n".join(lines).rstrip()
 
 
+
+def generate_event_handler_vars(protocol_classes):
+    lines = []
+
+    for cls in protocol_classes:
+        name = cls.__name__
+        snake_name = to_snake(name).lower()
+
+        lines.extend([
+            f"    {name} {snake_name}{{}};",
+            f"    {name}Callback {snake_name}_callbacks[MAX_NETWORK_CALLBACKS] = {{}};",
+            f"    int {snake_name}_callback_count = 0;",
+            "",
+            "    // registration function",
+            f"    bool register_{snake_name}_callback({name}Callback callback) {{",
+            "        if (callback == nullptr ||",
+            f"            {snake_name}_callback_count >= MAX_NETWORK_CALLBACKS) return false;",
+            "",
+            f"        {snake_name}_callbacks[{snake_name}_callback_count++] = callback;",
+            "        return true;",
+            "    }",
+            "",
+            "    // trigger function",
+            f"    void trigger_{snake_name}_callbacks({name} content, IPAddress senderIP, uint16_t senderPort) {{",
+            f"        for (int i = 0; i < {snake_name}_callback_count; i++)",
+            f"            {snake_name}_callbacks[i](content, senderIP, senderPort);",
+            "    }",
+            "",
+        ])
+
+    return "\n".join(lines).rstrip()
+
+
+
+def generate_dispatch_cases(message_classes, message_type_registry):
+    lines = []
+
+    for content_type, cls in message_type_registry.items():
+        name = cls.__name__
+
+        # Only generate cases for classes in message_classes.
+        if cls not in message_classes:
+            continue
+
+        snake_name = to_snake(name).lower()
+        has_nested_content = (
+            "content_type" in cls.__annotations__
+            and "content" in cls.__annotations__
+        )
+
+        lines.extend([
+            f"            case CONTENT_TYPE_{content_type.name}: {{",
+            f"                payload = {snake_name}_decode(&{snake_name}, buffer, &remaining);",
+            "",
+            "                if (payload == nullptr) {",
+            "                    return false;",
+            "                }",
+            "",
+            f"                trigger_{snake_name}_callbacks({snake_name}, senderIP, senderPort);",
+        ])
+
+        if has_nested_content:
+            lines.extend([
+                "",
+                f"                *next_type = {snake_name}.content_type;",
+                "                *next_buffer = payload;",
+                "                *next_len = remaining;",
+            ])
+
+        lines.extend([
+            "",
+            "                return true;",
+            "            }",
+            "",
+        ])
+
+    return "\n".join(lines).rstrip()
+
+
+
+
+
 generated_h = """
 /*
     THIS CODE IS GENEARTED DO NOT CHANGE, IF YOU WANT TO CHANGE LOOK THROUGH THE
@@ -188,7 +270,7 @@ namespace ProtocalEventHandler
         const uint8_t* current_buffer = buffer;
         size_t current_len = len;
 
-        while (current_buffer != nullptr && current_len > 0) {
+        while (current_buffer != nullptr) {
             ContentType next_type = CONTENT_TYPE_NONE;
             const uint8_t* next_buffer = nullptr;
             size_t next_len = 0;
@@ -205,8 +287,9 @@ namespace ProtocalEventHandler
                 break;
             }
 
-            // Terminal content types have no next layer.
-            if (next_buffer == nullptr || next_len == 0) {
+            // Stop only when there is no next content layer.
+            // A zero-length payload can still be a valid message.
+            if (next_buffer == nullptr) {
                 break;
             }
 
@@ -219,82 +302,6 @@ namespace ProtocalEventHandler
 """
 
 
-def generate_event_handler_vars(protocol_classes):
-    lines = []
-
-    for cls in protocol_classes:
-        name = cls.__name__
-        snake_name = to_snake(name).lower()
-
-        lines.extend([
-            f"    {name} {snake_name}{{}};",
-            f"    {name}Callback {snake_name}_callbacks[MAX_NETWORK_CALLBACKS] = {{}};",
-            f"    int {snake_name}_callback_count = 0;",
-            "",
-            "    // registration function",
-            f"    bool register_{snake_name}_callback({name}Callback callback) {{",
-            "        if (callback == nullptr ||",
-            f"            {snake_name}_callback_count >= MAX_NETWORK_CALLBACKS) return false;",
-            "",
-            f"        {snake_name}_callbacks[{snake_name}_callback_count++] = callback;",
-            "        return true;",
-            "    }",
-            "",
-            "    // trigger function",
-            f"    void trigger_{snake_name}_callbacks({name} content, IPAddress senderIP, uint16_t senderPort) {{",
-            f"        for (int i = 0; i < {snake_name}_callback_count; i++)",
-            f"            {snake_name}_callbacks[i](content, senderIP, senderPort);",
-            "    }",
-            "",
-        ])
-
-    return "\n".join(lines).rstrip()
-
-
-
-def generate_dispatch_cases(message_classes, message_type_registry):
-    lines = []
-
-    for content_type, cls in message_type_registry.items():
-        name = cls.__name__
-
-        # Only generate cases for classes in message_classes.
-        if cls not in message_classes:
-            continue
-
-        snake_name = to_snake(name).lower()
-        has_nested_content = (
-            "content_type" in cls.__annotations__
-            and "content" in cls.__annotations__
-        )
-
-        lines.extend([
-            f"            case CONTENT_TYPE_{content_type.name}: {{",
-            f"                payload = {snake_name}_decode(&{snake_name}, buffer, &remaining);",
-            "",
-            "                if (payload == nullptr) {",
-            "                    return false;",
-            "                }",
-            "",
-            f"                trigger_{snake_name}_callbacks({snake_name}, senderIP, senderPort);",
-        ])
-
-        if has_nested_content:
-            lines.extend([
-                "",
-                f"                *next_type = {snake_name}.content_type;",
-                "                *next_buffer = payload;",
-                "                *next_len = remaining;",
-            ])
-
-        lines.extend([
-            "",
-            "                return true;",
-            "            }",
-            "",
-        ])
-
-    return "\n".join(lines).rstrip()
 
 
 
@@ -326,7 +333,7 @@ if __name__ == "__main__":
     os.makedirs(folder, exist_ok=True)
 
     header_file_path = os.path.join(folder, "protocol_event_handler.h")
-    implementation_file_path = os.path.join(folder, "protocol_event_handler.c")
+    implementation_file_path = os.path.join(folder, "protocol_event_handler.cpp")
 
 
     with open(header_file_path, "w") as f:

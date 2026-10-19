@@ -2,6 +2,8 @@
 
 /.vscode
 
+/tests/protocal_test/build
+
 /.venv
 
 a.exe

@@ -366,7 +366,7 @@ namespace ProtocalEventHandler
         const uint8_t* current_buffer = buffer;
         size_t current_len = len;
 
-        while (current_buffer != nullptr && current_len > 0) {
+        while (current_buffer != nullptr) {
             ContentType next_type = CONTENT_TYPE_NONE;
             const uint8_t* next_buffer = nullptr;
             size_t next_len = 0;
@@ -383,8 +383,9 @@ namespace ProtocalEventHandler
                 break;
             }
 
-            // Terminal content types have no next layer.
-            if (next_buffer == nullptr || next_len == 0) {
+            // Stop only when there is no next content layer.
+            // A zero-length payload can still be a valid message.
+            if (next_buffer == nullptr) {
                 break;
             }
 
