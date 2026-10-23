@@ -11,7 +11,6 @@ import protocol
 from dataclasses import is_dataclass, fields, MISSING
 from enum import Enum
 import inspect
-import shutil
 import os
 
 
@@ -146,6 +145,14 @@ def generate_registry(message_classes) -> str:
 
 
 generated_js = """
+/*
+    THIS CODE IS GENEARTED DO NOT CHANGE, IF YOU WANT TO CHANGE LOOK THROUGH THE
+    PYTHON MIRROR OF THE PROTOCAL AND REGENERATE THE CODE WITH THE GENERATOR
+*/
+
+
+
+
 const VERSION = {PROTOCOL_VERSION};
 
 

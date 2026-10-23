@@ -1,4 +1,12 @@
 
+/*
+    THIS CODE IS GENEARTED DO NOT CHANGE, IF YOU WANT TO CHANGE LOOK THROUGH THE
+    PYTHON MIRROR OF THE PROTOCAL AND REGENERATE THE CODE WITH THE GENERATOR
+*/
+
+
+
+
 const VERSION = 2;
 
 
@@ -95,6 +103,7 @@ function encodeString(value, size, name) {
     result.set(bytes);
     return result;
 }
+
 
 function concatBytes(parts) {
     const length = parts.reduce((sum, part) => sum + part.length, 0);
